@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YudaSense Wiki GOD MODE</title>
+<link href="https://fonts.cdnfonts.com/css/minecraft-4" rel="stylesheet">
+
+<style>
+:root{--main:#43a047;--accent:#66bb6a;--card:#1e1e1e;}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Minecraft',Arial;background:linear-gradient(135deg,#121212,#1b1b1b);color:white;}
+header{text-align:center;padding:30px;background:linear-gradient(to right,#2e7d32,#1b5e20);}
+.container{max-width:1100px;margin:auto;padding:25px;}
+.section-title{margin-top:40px;margin-bottom:15px;font-size:22px;color:var(--accent);}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;}
+.card{background:var(--card);padding:15px;border-radius:15px;}
+.card img{width:100%;height:160px;object-fit:cover;border-radius:10px;margin-bottom:10px;}
+input,textarea,select{padding:10px;border:none;border-radius:10px;width:100%;margin-bottom:12px;background:#2c2c2c;color:white;}
+button{padding:8px;border:none;border-radius:8px;cursor:pointer;background:var(--main);color:white;font-weight:bold;margin-top:5px;}
+button:hover{background:var(--accent)}
+.admin-box{background:#181818;padding:20px;border-radius:15px;margin-top:40px;}
+.hidden{display:none}
+.category-tag{font-size:12px;background:#2e7d32;padding:4px 8px;border-radius:20px;display:inline-block;margin-bottom:8px;}
+footer{text-align:center;padding:25px;color:#aaa;margin-top:40px;}
+.badge{font-size:12px;padding:4px 6px;border-radius:10px;margin-left:5px;}
+.gold{background:gold;color:black}
+.silver{background:silver;color:black}
+.bronze{background:#cd7f32;color:black}
+.comment-box{background:#111;padding:8px;border-radius:8px;margin-top:8px;font-size:13px;}
+</style>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+
+</head>
+<body>
+
+<header><h1>YudaSense Wiki GOD MODE</h1></header>
+<div class="container">
+
+<h2 class="section-title">🔎 Cari & Filter</h2>
+<input type="text" id="searchInput" placeholder="Cari artikel..." oninput="renderArticles()">
+<select id="categoryFilter" onchange="renderArticles()">
+<option value="all">Semua</option>
+<option value="Weapon">Weapon</option>
+<option value="Mob">Mob</option>
+<option value="Block">Block</option>
+<option value="Redstone">Redstone</option>
+</select>
+<select id="sortSelect" onchange="renderArticles()">
+<option value="newest">Terbaru</option>
+<option value="popular">Terpopuler</option>
+<option value="trending">Trending 24 Jam</option>
+</select>
+
+<h2 class="section-title">📚 Artikel</h2>
+<div class="grid" id="articleGrid"></div>
+
+<div class="admin-box">
+<h2>Admin Panel</h2>
+
+<div id="loginBox">
+<input type="text" id="adminUser" placeholder="Email / Username">
+<input type="password" id="adminPass" placeholder="Password">
+<button onclick="login()">Login</button>
+</div>
+
+<div id="adminContent" class="hidden">
+<button onclick="logout()" style="background:#c62828;">Logout</button>
+<p id="adminRole"></p>
+
+<h3>📊 Statistik</h3>
+<p id="statsBox"></p>
+
+<h3>Tambah Artikel</h3>
+<input type="text" id="title" placeholder="Judul">
+<textarea id="content" placeholder="Isi Artikel"></textarea>
+<input type="text" id="image" placeholder="Link Gambar">
+<select id="category">
+<option value="Weapon">Weapon</option>
+<option value="Mob">Mob</option>
+<option value="Block">Block</option>
+<option value="Redstone">Redstone</option>
+</select>
+<button onclick="addArticle()">Simpan</button>
+</div>
+</div>
+</div>
+
+<footer>© 2026 YudaSense GOD MODE</footer>
+
+<script>
+// 1️⃣ Firebase Config - GANTI DENGAN DATA PROJECTMU
+const firebaseConfig = {
+  apiKey: "AIzaSyB8jxdCD4mdEVo-9AcT_tgILUmoKnjfDiI",
+  authDomain: "websiteyuda-1838c.firebaseapp.com",
+  databaseURL: "https://websiteyuda-1838c-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "websiteyuda-1838c",
+  storageBucket: "websiteyuda-1838c.firebasestorage.app",
+  messagingSenderId: "516687001835",
+  appId: "1:516687001835:web:9eaacf9b611a07fd7de6ae"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
+
+let currentUser=null;
+
+// Badge
+function badge(l){
+if(l>=100)return"<span class='badge gold'>Gold</span>";
+if(l>=50)return"<span class='badge silver'>Silver</span>";
+if(l>=20)return"<span class='badge bronze'>Bronze</span>";
+return"";
+}
+
+// Render Articles
+function renderArticles(){
+const grid=document.getElementById('articleGrid');
+grid.innerHTML='';
+const keyword=document.getElementById('searchInput').value.toLowerCase();
+const cat=document.getElementById('categoryFilter').value;
+const sort=document.getElementById('sortSelect').value;
+
+db.ref("articles").once("value",snap=>{
+  let data = snap.val() ? Object.entries(snap.val()) : [];
+  if(keyword!=="") data = data.filter(([id,a])=>a.title.toLowerCase().includes(keyword));
+  if(cat!=="all") data = data.filter(([id,a])=>a.category===cat);
+  if(sort==="newest") data.sort((a,b)=>b[1].date-a[1].date);
+  if(sort==="popular") data.sort((a,b)=>b[1].likes-a[1].likes);
+  if(sort==="trending") data.sort((a,b)=>b[1].views24-a[1].views24);
+  
+  data.forEach(([id,a])=>{
+    const img = a.image || "https://via.placeholder.com/300x160";
+    const card = document.createElement("div");
+    card.className="card";
+    card.innerHTML=`
+      <img src="${img}">
+      <div class="category-tag">${a.category}</div>
+      <h3>${a.title} ${badge(a.likes)}</h3>
+      <p>${a.content}</p>
+      <p>📅 ${new Date(a.date).toLocaleDateString()}</p>
+      <p>👁 ${a.views} | 👍 ${a.likes}</p>
+      <button onclick="viewArticle('${id}')">Baca</button>
+      <button onclick="like('${id}')">Like</button>
+      <div>
+        <input placeholder="Komentar..." onkeydown="if(event.key==='Enter')addComment('${id}',this.value,this)">
+        ${a.comments ? Object.entries(a.comments).map(([k,c])=>`<div class='comment-box'>${c.user}: ${c.text}</div>`).join("") : ""}
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+  updateStats();
+});
+}
+
+// Add / Like / View / Comment
+function addArticle(){
+const title=document.getElementById('title').value;
+const content=document.getElementById('content').value;
+const image=document.getElementById('image').value;
+const category=document.getElementById('category').value;
+if(!title||!content)return;
+const id = Date.now();
+db.ref("articles/"+id).set({
+title,content,image,category,likes:0,views:0,views24:0,comments:{},date:Date.now()
+}).then(()=>{renderArticles()});
+}
+
+function like(id){db.ref("articles/"+id+"/likes").transaction(l=>l?l+1:1).then(()=>renderArticles());}
+function viewArticle(id){db.ref("articles/"+id).transaction(a=>{if(a){a.views++;a.views24++;}return a;}).then(()=>renderArticles());}
+function addComment(id,text,input){if(!text)return;db.ref("articles/"+id+"/comments").push({user:currentUser.email||"Anon",text}).then(()=>renderArticles());input.value="";}
+
+// Update Stats
+function updateStats(){db.ref("articles").once("value",snap=>{const data = snap.val() ? Object.values(snap.val()) : [];document.getElementById("statsBox").innerText=`Artikel: ${data.length} | Likes: ${data.reduce((s,a)=>s+a.likes,0)} | Views: ${data.reduce((s,a)=>s+a.views,0)}`});}
+
+// Login / Logout
+function login(){const email=document.getElementById('adminUser').value;const pass=document.getElementById('adminPass').value;auth.signInWithEmailAndPassword(email,pass).then(u=>{currentUser=u.user;document.getElementById('loginBox').classList.add('hidden');document.getElementById('adminContent').classList.remove('hidden');document.getElementById('adminRole').innerText="Login sebagai: "+currentUser.email;}).catch(err=>alert(err.message));}
+function logout(){auth.signOut();currentUser=null;document.getElementById('loginBox').classList.remove('hidden');document.getElementById('adminContent').classList.add('hidden');}
+
+// Realtime updates
+db.ref("articles").on("value",renderArticles);
+
+</script>
+</body>
+</html>
